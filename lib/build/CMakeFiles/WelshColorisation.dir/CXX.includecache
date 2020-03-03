@@ -6,11 +6,13 @@
 
 #IncludeRegexTransform: 
 
-/home/meven/work/colorisation/lib/src/WelshColoration.cpp
-WelshColoration.hpp
-/home/meven/work/colorisation/lib/src/WelshColoration.hpp
+/home/meven/work/colorisation/lib/src/WelshColorisation.cpp
+WelshColorisation.hpp
+/home/meven/work/colorisation/lib/src/WelshColorisation.hpp
+string.h
+-
 
-/home/meven/work/colorisation/lib/src/WelshColoration.hpp
+/home/meven/work/colorisation/lib/src/WelshColorisation.hpp
 stdlib.h
 -
 stdio.h
@@ -19,6 +21,18 @@ opencv2/imgproc.hpp
 /home/meven/work/colorisation/lib/src/opencv2/imgproc.hpp
 opencv2/imgcodecs.hpp
 /home/meven/work/colorisation/lib/src/opencv2/imgcodecs.hpp
+
+/home/meven/work/colorisation/lib/src/test.cpp
+iostream
+-
+opencv2/imgproc.hpp
+/home/meven/work/colorisation/lib/src/opencv2/imgproc.hpp
+opencv2/imgcodecs.hpp
+/home/meven/work/colorisation/lib/src/opencv2/imgcodecs.hpp
+opencv2/highgui.hpp
+/home/meven/work/colorisation/lib/src/opencv2/highgui.hpp
+WelshColorisation.hpp
+/home/meven/work/colorisation/lib/src/WelshColorisation.hpp
 
 /usr/local/include/opencv4/opencv2/core/affine.hpp
 opencv2/core.hpp
@@ -785,6 +799,14 @@ opencv2/core.hpp
 /usr/local/include/opencv4/opencv2/flann/opencv2/core.hpp
 opencv2/core/utility.hpp
 /usr/local/include/opencv4/opencv2/flann/opencv2/core/utility.hpp
+
+/usr/local/include/opencv4/opencv2/highgui.hpp
+opencv2/core.hpp
+/usr/local/include/opencv4/opencv2/opencv2/core.hpp
+opencv2/imgcodecs.hpp
+/usr/local/include/opencv4/opencv2/opencv2/imgcodecs.hpp
+opencv2/videoio.hpp
+/usr/local/include/opencv4/opencv2/opencv2/videoio.hpp
 
 /usr/local/include/opencv4/opencv2/imgcodecs.hpp
 opencv2/core.hpp

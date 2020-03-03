@@ -4,7 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/meven/work/colorisation/lib/src/WelshColoration.cpp" "/home/meven/work/colorisation/lib/build/CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.o"
+  "/home/meven/work/colorisation/lib/src/WelshColorisation.cpp" "/home/meven/work/colorisation/lib/build/CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.o"
   "/home/meven/work/colorisation/lib/src/test.cpp" "/home/meven/work/colorisation/lib/build/CMakeFiles/WelshColorisation.dir/src/test.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")

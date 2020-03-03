@@ -123,32 +123,32 @@ WelshColorisation/fast:
 	$(MAKE) -f CMakeFiles/WelshColorisation.dir/build.make CMakeFiles/WelshColorisation.dir/build
 .PHONY : WelshColorisation/fast
 
-src/WelshColoration.o: src/WelshColoration.cpp.o
+src/WelshColorisation.o: src/WelshColorisation.cpp.o
 
-.PHONY : src/WelshColoration.o
+.PHONY : src/WelshColorisation.o
 
 # target to build an object file
-src/WelshColoration.cpp.o:
-	$(MAKE) -f CMakeFiles/WelshColorisation.dir/build.make CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.o
-.PHONY : src/WelshColoration.cpp.o
+src/WelshColorisation.cpp.o:
+	$(MAKE) -f CMakeFiles/WelshColorisation.dir/build.make CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.o
+.PHONY : src/WelshColorisation.cpp.o
 
-src/WelshColoration.i: src/WelshColoration.cpp.i
+src/WelshColorisation.i: src/WelshColorisation.cpp.i
 
-.PHONY : src/WelshColoration.i
+.PHONY : src/WelshColorisation.i
 
 # target to preprocess a source file
-src/WelshColoration.cpp.i:
-	$(MAKE) -f CMakeFiles/WelshColorisation.dir/build.make CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.i
-.PHONY : src/WelshColoration.cpp.i
+src/WelshColorisation.cpp.i:
+	$(MAKE) -f CMakeFiles/WelshColorisation.dir/build.make CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.i
+.PHONY : src/WelshColorisation.cpp.i
 
-src/WelshColoration.s: src/WelshColoration.cpp.s
+src/WelshColorisation.s: src/WelshColorisation.cpp.s
 
-.PHONY : src/WelshColoration.s
+.PHONY : src/WelshColorisation.s
 
 # target to generate assembly for a file
-src/WelshColoration.cpp.s:
-	$(MAKE) -f CMakeFiles/WelshColorisation.dir/build.make CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.s
-.PHONY : src/WelshColoration.cpp.s
+src/WelshColorisation.cpp.s:
+	$(MAKE) -f CMakeFiles/WelshColorisation.dir/build.make CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.s
+.PHONY : src/WelshColorisation.cpp.s
 
 src/test.o: src/test.cpp.o
 
@@ -186,9 +186,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... WelshColorisation"
 	@echo "... edit_cache"
-	@echo "... src/WelshColoration.o"
-	@echo "... src/WelshColoration.i"
-	@echo "... src/WelshColoration.s"
+	@echo "... src/WelshColorisation.o"
+	@echo "... src/WelshColorisation.i"
+	@echo "... src/WelshColorisation.s"
 	@echo "... src/test.o"
 	@echo "... src/test.i"
 	@echo "... src/test.s"

@@ -57,18 +57,18 @@ include CMakeFiles/WelshColorisation.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/WelshColorisation.dir/flags.make
 
-CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.o: CMakeFiles/WelshColorisation.dir/flags.make
-CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.o: ../src/WelshColoration.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/meven/work/colorisation/lib/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.o -c /home/meven/work/colorisation/lib/src/WelshColoration.cpp
+CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.o: CMakeFiles/WelshColorisation.dir/flags.make
+CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.o: ../src/WelshColorisation.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/meven/work/colorisation/lib/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.o -c /home/meven/work/colorisation/lib/src/WelshColorisation.cpp
 
-CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/meven/work/colorisation/lib/src/WelshColoration.cpp > CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.i
+CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/meven/work/colorisation/lib/src/WelshColorisation.cpp > CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.i
 
-CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/meven/work/colorisation/lib/src/WelshColoration.cpp -o CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.s
+CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/meven/work/colorisation/lib/src/WelshColorisation.cpp -o CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.s
 
 CMakeFiles/WelshColorisation.dir/src/test.cpp.o: CMakeFiles/WelshColorisation.dir/flags.make
 CMakeFiles/WelshColorisation.dir/src/test.cpp.o: ../src/test.cpp
@@ -85,13 +85,13 @@ CMakeFiles/WelshColorisation.dir/src/test.cpp.s: cmake_force
 
 # Object files for target WelshColorisation
 WelshColorisation_OBJECTS = \
-"CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.o" \
+"CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.o" \
 "CMakeFiles/WelshColorisation.dir/src/test.cpp.o"
 
 # External object files for target WelshColorisation
 WelshColorisation_EXTERNAL_OBJECTS =
 
-WelshColorisation: CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.o
+WelshColorisation: CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.o
 WelshColorisation: CMakeFiles/WelshColorisation.dir/src/test.cpp.o
 WelshColorisation: CMakeFiles/WelshColorisation.dir/build.make
 WelshColorisation: /usr/local/lib/libopencv_dnn.so.4.2.0

@@ -1,5 +1,5 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/WelshColorisation.dir/src/WelshColoration.cpp.o"
+  "CMakeFiles/WelshColorisation.dir/src/WelshColorisation.cpp.o"
   "CMakeFiles/WelshColorisation.dir/src/test.cpp.o"
   "WelshColorisation.pdb"
   "WelshColorisation"
