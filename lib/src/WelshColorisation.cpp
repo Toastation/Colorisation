@@ -127,7 +127,22 @@ Vec2d compute_pixel_neighborhood_stat(colorisation_s colorisation, int x, int y)
  * @param colorisation 
  * @param neighborhood_stats 
  */
-void jittered_sampling(colorisation_s colorisation, Vec2d * neighborhood_stats) {
+void brute_force_sampling(colorisation_s colorisation, Vec2d * neighborhood_stats, Vec2i * neighborhood_pos) {
+    for (uint i = 0; i < colorisation->samples; i++) {
+        int x = i % colorisation->src->rows;
+        int y = i / colorisation->src->rows;
+        neighborhood_stats[i] = compute_pixel_neighborhood_stat(colorisation, x, y);
+        neighborhood_pos[i] = Vec2i(x, y);
+    }
+}
+
+/**
+ * @brief 
+ * 
+ * @param colorisation 
+ * @param neighborhood_stats 
+ */
+void jittered_sampling(colorisation_s colorisation, Vec2d * neighborhood_stats, Vec2i * neighborhood_pos) {
     int n = sqrt(colorisation->samples);
     int grid_x = colorisation->src->cols / n; 
     int grid_y = colorisation->src->rows / n;
@@ -137,9 +152,35 @@ void jittered_sampling(colorisation_s colorisation, Vec2d * neighborhood_stats) 
             int pos_x = x * grid_x + (rand() % grid_x);
             int pos_y = y * grid_y + (rand() % grid_y);
             neighborhood_stats[index] = compute_pixel_neighborhood_stat(colorisation, pos_x, pos_y);
+            neighborhood_pos[index] = Vec2i(pos_x, pos_y);
             index++;
         }
     } 
+}
+
+/**
+ * @brief 
+ * TODO: parameterize weights
+ * 
+ * @param colorisation 
+ * @param target_stats 
+ * @return int 
+ */
+int find_best_matching_pixel(colorisation_s colorisation, Vec2d * neighborhood_stat, Vec2d target_stats) {
+    double diffs[colorisation->samples];
+    for (uint i = 0; i < colorisation->samples; i++) {
+        diffs[i] = (0.5 * (target_stats[0] - neighborhood_stat[i][0]) * (target_stats[0] - neighborhood_stat[i][0])) 
+            + (0.5 * (target_stats[1] - neighborhood_stat[i][1]) * (target_stats[1] - neighborhood_stat[i][1])); 
+    }
+    double min_diff = INT_MAX;
+    int min_index = 0;
+    for (uint i = 0; i < colorisation->samples; i++) {
+        if (diffs[i] < min_diff) {
+            min_diff = diffs[i];
+            min_index = i;
+        }
+    }
+    return min_index;
 }
 
 /**
@@ -148,21 +189,18 @@ void jittered_sampling(colorisation_s colorisation, Vec2d * neighborhood_stats) 
  * @param colorisation 
  * @param neighborhood_stat 
  */
-void transfer_color(colorisation_s colorisation, Vec2d * neighborhood_stat) {
-
-}
-
-/**
- * @brief 
- * 
- * @param colorisation 
- * @param neighborhood_stats 
- */
-void brute_force_sampling(colorisation_s colorisation, Vec2d * neighborhood_stats) {
-    for (uint i = 0; i < colorisation->samples; i++) {
-        int x = i % colorisation->src->rows;
-        int y = i / colorisation->src->rows;
-        neighborhood_stats[i] = compute_pixel_neighborhood_stat(colorisation, x, y);
+void transfer_color(colorisation_s colorisation, Vec2d * neighborhood_stat, Vec2i * neighborhood_pos) {
+    for (int x = 0; x < colorisation->target->cols; x++) {
+        for (int y = 0; y < colorisation->target->rows; y++) {
+            Vec2d stats = compute_pixel_neighborhood_stat(colorisation, x, y);
+            int match_index = find_best_matching_pixel(colorisation, neighborhood_stat, stats);
+            std::cout << match_index << std::endl;
+            Vec3b color = colorisation->target->at<Vec3b>(y, x);
+            Vec3b matching_color = colorisation->target->at<Vec3b>(neighborhood_pos[match_index][1], neighborhood_pos[match_index][0]);
+            color[1] = matching_color[1];
+            color[2] = matching_color[2];
+            colorisation->target->at<Vec3b>(y, x) = color; 
+        }
     }
 }
 
@@ -174,6 +212,7 @@ void brute_force_sampling(colorisation_s colorisation, Vec2d * neighborhood_stat
  * 4. For each pixel in the target, find a match in the source based on the result of step 3.
  * 5. Transfer the colors (A,B channels) of the matching pixel to the target.
  * 
+    cvtColor(*(colorisation->src), *(colorisation->src), COLOR_BGR2Lab);
  * @param colorisation 
  */
 void run(colorisation_s colorisation) {
@@ -186,15 +225,21 @@ void run(colorisation_s colorisation) {
 
     // sample pixels in source image and compute their neighborhood stats
     Vec2d * neighborhood_stats = (Vec2d *) malloc(sizeof(Vec2d) * colorisation->samples);
+    Vec2i * neighborhood_pos = (Vec2i *) malloc(sizeof(Vec2i) * colorisation->samples);
     exit_if(neighborhood_stats == NULL, "Error allocating neighborhood stat array\n");
+    exit_if(neighborhood_pos == NULL, "Error allocating neighborhood pos array\n");
     switch (colorisation->sampling) {
         case JITTERED:
-            jittered_sampling(colorisation, neighborhood_stats);
+            jittered_sampling(colorisation, neighborhood_stats, neighborhood_pos);
             break;
         case BRUTE_FORCE:
-            brute_force_sampling(colorisation, neighborhood_stats);
+            brute_force_sampling(colorisation, neighborhood_stats, neighborhood_pos);
             break;
     }
+
+    transfer_color(colorisation, neighborhood_stats, neighborhood_pos);
+
+    cvtColor(*(colorisation->target), *(colorisation->target), COLOR_Lab2BGR);    
 }
 
 ///////////////////
@@ -208,7 +253,7 @@ void welsh_colorisation(const char * source_img, const char * target_img, const 
     target = imread(samples::findFile(target_img));
     exit_if(src.empty(), "Cannot load source image");    
     exit_if(target.empty(), "Cannot load target image");    
-    colorisation_s colorisation = create_colorisation_struct(&src, &target, 5, 512, BRUTE_FORCE);
+    colorisation_s colorisation = create_colorisation_struct(&src, &target, 5, 512, JITTERED);
 
     run(colorisation);
 
