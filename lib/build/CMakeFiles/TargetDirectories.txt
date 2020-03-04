@@ -1,3 +1,0 @@
-/home/meven/work/colorisation/lib/build/CMakeFiles/rebuild_cache.dir
-/home/meven/work/colorisation/lib/build/CMakeFiles/WelshColorisation.dir
-/home/meven/work/colorisation/lib/build/CMakeFiles/edit_cache.dir
