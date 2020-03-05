@@ -1,3 +1,14 @@
+/**
+ * @file WelshColorisation.cpp
+ * @brief 
+ *
+ * TODO :
+ * - parameterize weights in find_best_match
+ * - test cases where images aren't of the same size
+ * - optimize
+ * 
+ */
+
 #include "WelshColorisation.hpp"
 
 #include <string.h>
@@ -90,7 +101,7 @@ void luminance_remap(colorisation_s colorisation) {
         for (int x = 0; x < cols; x++) {
             Vec3b color = colorisation->src->at<Vec3b>(y,x);
             color[0] = ratio * (color[0] - src_mean[0]) + target_mean[0];
-            colorisation->target->at<Vec3b>(y, x) = color;
+            colorisation->src->at<Vec3b>(y, x) = color;
         }
     }
     // meanStdDev(*(colorisation->src), src_mean, src_stddev);
@@ -107,15 +118,15 @@ void luminance_remap(colorisation_s colorisation) {
  * @param y The y coord of the pixel
  * @return Vec2d A vector representing the (mean, stddev) luminance of the pixel's neighborhood
  */
-Vec2d compute_pixel_neighborhood_stat(colorisation_s colorisation, int x, int y) {
+Vec2d compute_pixel_neighborhood_stat(colorisation_s colorisation, Mat * img, int x, int y) {
     int half_size = colorisation->neighborhood_window_size / 2;
     int size = colorisation->neighborhood_window_size;
-    int tx = CLAMP(x - half_size, 0, colorisation->src->cols);
-    int ty = CLAMP(y - half_size, 0, colorisation->src->rows);
-    int width = colorisation->src->cols - (tx + size) < 0 ? colorisation->src->cols - tx : colorisation->neighborhood_window_size; 
-    int height = colorisation->src->rows - (ty + size) < 0 ? colorisation->src->rows - ty : colorisation->neighborhood_window_size; 
+    int tx = CLAMP(x - half_size, 0, img->cols);
+    int ty = CLAMP(y - half_size, 0, img->rows);
+    int width = img->cols - (tx + size) < 0 ? img->cols - tx : colorisation->neighborhood_window_size; 
+    int height = img->rows - (ty + size) < 0 ? img->rows - ty : colorisation->neighborhood_window_size; 
     Rect rect(tx, ty, width, height);
-    Mat sub_mat = (*(colorisation->src))(rect);
+    Mat sub_mat = (*(img))(rect);
     Scalar mean, stddev;
     meanStdDev(sub_mat, mean, stddev);
     return Vec2d(mean[0], stddev[0]);
@@ -131,7 +142,7 @@ void brute_force_sampling(colorisation_s colorisation, Vec2d * neighborhood_stat
     for (uint i = 0; i < colorisation->samples; i++) {
         int x = i % colorisation->src->rows;
         int y = i / colorisation->src->rows;
-        neighborhood_stats[i] = compute_pixel_neighborhood_stat(colorisation, x, y);
+        neighborhood_stats[i] = compute_pixel_neighborhood_stat(colorisation, colorisation->src, x, y);
         neighborhood_pos[i] = Vec2i(x, y);
     }
 }
@@ -151,7 +162,7 @@ void jittered_sampling(colorisation_s colorisation, Vec2d * neighborhood_stats, 
         for (int y = 0; y < n; y++) {
             int pos_x = x * grid_x + (rand() % grid_x);
             int pos_y = y * grid_y + (rand() % grid_y);
-            neighborhood_stats[index] = compute_pixel_neighborhood_stat(colorisation, pos_x, pos_y);
+            neighborhood_stats[index] = compute_pixel_neighborhood_stat(colorisation, colorisation->src, pos_x, pos_y);
             neighborhood_pos[index] = Vec2i(pos_x, pos_y);
             index++;
         }
@@ -192,11 +203,10 @@ int find_best_matching_pixel(colorisation_s colorisation, Vec2d * neighborhood_s
 void transfer_color(colorisation_s colorisation, Vec2d * neighborhood_stat, Vec2i * neighborhood_pos) {
     for (int x = 0; x < colorisation->target->cols; x++) {
         for (int y = 0; y < colorisation->target->rows; y++) {
-            Vec2d stats = compute_pixel_neighborhood_stat(colorisation, x, y);
+            Vec2d stats = compute_pixel_neighborhood_stat(colorisation, colorisation->target, x, y);
             int match_index = find_best_matching_pixel(colorisation, neighborhood_stat, stats);
-            std::cout << match_index << std::endl;
             Vec3b color = colorisation->target->at<Vec3b>(y, x);
-            Vec3b matching_color = colorisation->target->at<Vec3b>(neighborhood_pos[match_index][1], neighborhood_pos[match_index][0]);
+            Vec3b matching_color = colorisation->src->at<Vec3b>(neighborhood_pos[match_index][1], neighborhood_pos[match_index][0]);
             color[1] = matching_color[1];
             color[2] = matching_color[2];
             colorisation->target->at<Vec3b>(y, x) = color; 
@@ -222,7 +232,7 @@ void run(colorisation_s colorisation) {
 
     // match source and target luminance histogram
     luminance_remap(colorisation);
-
+    
     // sample pixels in source image and compute their neighborhood stats
     Vec2d * neighborhood_stats = (Vec2d *) malloc(sizeof(Vec2d) * colorisation->samples);
     Vec2i * neighborhood_pos = (Vec2i *) malloc(sizeof(Vec2i) * colorisation->samples);
@@ -237,7 +247,11 @@ void run(colorisation_s colorisation) {
             break;
     }
 
+    imwrite("1.jpg", *(colorisation->target));
+
     transfer_color(colorisation, neighborhood_stats, neighborhood_pos);
+
+    imwrite("2.jpg", *(colorisation->target));
 
     cvtColor(*(colorisation->target), *(colorisation->target), COLOR_Lab2BGR);    
 }
@@ -253,7 +267,7 @@ void welsh_colorisation(const char * source_img, const char * target_img, const 
     target = imread(samples::findFile(target_img));
     exit_if(src.empty(), "Cannot load source image");    
     exit_if(target.empty(), "Cannot load target image");    
-    colorisation_s colorisation = create_colorisation_struct(&src, &target, 5, 512, JITTERED);
+    colorisation_s colorisation = create_colorisation_struct(&src, &target, 5, 529, JITTERED);
 
     run(colorisation);
 
