@@ -14,6 +14,8 @@
 #include <string.h>
 #include <iostream>
 #include <algorithm>
+#include <chrono>
+#include <omp.h>
 
 #define CLAMP(x, low, high)  (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
@@ -133,7 +135,7 @@ Vec2d compute_pixel_neighborhood_stat(colorisation_s colorisation, Mat * img, in
 }
 
 /**
- * @brief 
+ * @brief Compute the neighborhood stats of all pixels in the colored image.
  * 
  * @param colorisation 
  * @param neighborhood_stats 
@@ -148,7 +150,8 @@ void brute_force_sampling(colorisation_s colorisation, Vec2d * neighborhood_stat
 }
 
 /**
- * @brief 
+ * @brief Compute the neighborhood stats of pixels in the colored image based on random
+ * jittered sampling.
  * 
  * @param colorisation 
  * @param neighborhood_stats 
@@ -170,7 +173,10 @@ void jittered_sampling(colorisation_s colorisation, Vec2d * neighborhood_stats, 
 }
 
 /**
- * @brief 
+ * @brief With the given pixel stats, find its closest match in the colored image.
+ * The closest match is based on the pixel's neighborhood weighted mean and standard
+ * deviation (by default, 50% for both).
+ * 
  * TODO: parameterize weights
  * 
  * @param colorisation 
@@ -179,12 +185,14 @@ void jittered_sampling(colorisation_s colorisation, Vec2d * neighborhood_stats, 
  */
 int find_best_matching_pixel(colorisation_s colorisation, Vec2d * neighborhood_stat, Vec2d target_stats) {
     double diffs[colorisation->samples];
+    #pragma omp parallel for
     for (uint i = 0; i < colorisation->samples; i++) {
         diffs[i] = (0.5 * (target_stats[0] - neighborhood_stat[i][0]) * (target_stats[0] - neighborhood_stat[i][0])) 
             + (0.5 * (target_stats[1] - neighborhood_stat[i][1]) * (target_stats[1] - neighborhood_stat[i][1])); 
     }
     double min_diff = INT_MAX;
     int min_index = 0;
+    #pragma omp parallel for
     for (uint i = 0; i < colorisation->samples; i++) {
         if (diffs[i] < min_diff) {
             min_diff = diffs[i];
@@ -195,12 +203,15 @@ int find_best_matching_pixel(colorisation_s colorisation, Vec2d * neighborhood_s
 }
 
 /**
- * @brief 
+ * @brief Compute the neighborhood stats for each pixel in the grayscale image
+ * and find its best matching pixel in the colored image.
+ * The chromaticity is then transferred from the best match to the grayscale pixel (A and B channels).  
  * 
  * @param colorisation 
  * @param neighborhood_stat 
  */
 void transfer_color(colorisation_s colorisation, Vec2d * neighborhood_stat, Vec2i * neighborhood_pos) {
+    #pragma omp parallel for collapse(2)
     for (int x = 0; x < colorisation->target->cols; x++) {
         for (int y = 0; y < colorisation->target->rows; y++) {
             Vec2d stats = compute_pixel_neighborhood_stat(colorisation, colorisation->target, x, y);
@@ -247,11 +258,12 @@ void run(colorisation_s colorisation) {
             break;
     }
 
-    imwrite("1.jpg", *(colorisation->target));
-
+    // auto start = std::chrono::high_resolution_clock::now(); 
     transfer_color(colorisation, neighborhood_stats, neighborhood_pos);
-
-    imwrite("2.jpg", *(colorisation->target));
+    // auto stop = std::chrono::high_resolution_clock::now(); 
+    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
+    // std::cout << "Time taken by function: " << duration.count() / 1000000.0 << " seconds" << std::endl; 
+  
 
     cvtColor(*(colorisation->target), *(colorisation->target), COLOR_Lab2BGR);    
 }
