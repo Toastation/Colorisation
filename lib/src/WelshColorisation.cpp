@@ -3,9 +3,7 @@
  * @brief 
  *
  * TODO :
- * - parameterize weights in find_best_match
  * - test cases where images aren't of the same size
- * - optimize
  * 
  */
 
@@ -18,6 +16,12 @@
 #include <omp.h>
 
 #define CLAMP(x, low, high)  (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
+
+#define DEFAULT_NEIGHBORHOOD_SIZE 5
+#define DEFAULT_SAMPLES 225
+#define DEFAULT_SAMPLING JITTERED
+#define DEFAULT_MEAN_WEIGHT 0.5
+
 
 /**
  * @brief how to sample pixel for the matching process 
@@ -36,6 +40,7 @@ struct colorisation {
     uint neighborhood_window_size;          // size of the neighborhood window for pixel matching
     uint samples;                           // number of samples for the pixel matching (must be a square number)
     sampling_method sampling;               // how to sample pixel for the matching process
+    double mean_weight;                     // weight of the mean luminance for determining the best match (stddev weight = 1-mean_weight)
     Mat * src;                              // the source image (colored image)
     Mat * target;                           // the target image (greyscale image)
 };
@@ -71,12 +76,13 @@ void exit_if(bool cond, const char * message) {
  * @param neighborhood_window_size 
  * @return colorisation_s 
  */
-colorisation_s create_colorisation_struct(Mat * src, Mat * target, uint neighborhood_window_size, uint samples, sampling_method sampling) {
+colorisation_s create_colorisation_struct(Mat * src, Mat * target) {
     colorisation_s colorisation = (colorisation_s) malloc(sizeof(struct colorisation));
     exit_if(!colorisation, "Cannot allocate colorisation structure");
-    colorisation->neighborhood_window_size = 5;
-    colorisation->samples = (sampling == BRUTE_FORCE) ? (src->cols * src->rows) : samples;
-    colorisation->sampling = sampling;
+    colorisation->neighborhood_window_size = DEFAULT_NEIGHBORHOOD_SIZE;
+    colorisation->samples = DEFAULT_SAMPLES;
+    colorisation->sampling = DEFAULT_SAMPLING;
+    colorisation->mean_weight = DEFAULT_MEAN_WEIGHT;
     colorisation->src = src;
     colorisation->target = target;
     return colorisation;
@@ -95,10 +101,6 @@ void luminance_remap(colorisation_s colorisation) {
     int cols = colorisation->src->cols;
     int rows = colorisation->src->rows;
     double ratio = target_stddev[0] / src_stddev[0]; // ratio of the luminance std deviation
-    // std::cout << src_stddev << std::endl;
-    // std::cout << src_mean << std::endl;    
-    // std::cout << target_stddev << std::endl;    
-    // std::cout << target_mean << std::endl;    
     for (int y = 0; y < rows; y++) {
         for (int x = 0; x < cols; x++) {
             Vec3b color = colorisation->src->at<Vec3b>(y,x);
@@ -106,9 +108,6 @@ void luminance_remap(colorisation_s colorisation) {
             colorisation->src->at<Vec3b>(y, x) = color;
         }
     }
-    // meanStdDev(*(colorisation->src), src_mean, src_stddev);
-    // std::cout << src_stddev << std::endl;    
-    // std::cout << src_mean << std::endl;    
 }
 
 /**
@@ -177,19 +176,24 @@ void jittered_sampling(colorisation_s colorisation, Vec2d * neighborhood_stats, 
  * The closest match is based on the pixel's neighborhood weighted mean and standard
  * deviation (by default, 50% for both).
  * 
- * TODO: parameterize weights
- * 
  * @param colorisation 
  * @param target_stats 
  * @return int 
  */
-int find_best_matching_pixel(colorisation_s colorisation, Vec2d * neighborhood_stat, Vec2d target_stats) {
+int find_best_matching_pixel(colorisation_s colorisation, Vec2d * neighborhood_stat, const Vec2d& target_stats) {
     double diffs[colorisation->samples];
+    double target_mean, src_mean, target_stddev, src_stddev;
+    // compute the weighted square difference between the samples and given neighborhoods
     #pragma omp parallel for
     for (uint i = 0; i < colorisation->samples; i++) {
-        diffs[i] = (0.5 * (target_stats[0] - neighborhood_stat[i][0]) * (target_stats[0] - neighborhood_stat[i][0])) 
-            + (0.5 * (target_stats[1] - neighborhood_stat[i][1]) * (target_stats[1] - neighborhood_stat[i][1])); 
+        target_mean = target_stats[0];
+        target_stddev = target_stats[1];
+        src_mean = neighborhood_stat[i][0];
+        src_stddev = neighborhood_stat[i][1];
+        diffs[i] = (0.5 * (target_mean - src_mean) * (target_mean - src_mean)) 
+            + (0.5 * (target_stddev - src_stddev) * (target_stddev - src_stddev)); 
     }
+    // find the minimum value among the squared differences
     double min_diff = INT_MAX;
     int min_index = 0;
     #pragma omp parallel for
@@ -258,12 +262,7 @@ void run(colorisation_s colorisation) {
             break;
     }
 
-    // auto start = std::chrono::high_resolution_clock::now(); 
     transfer_color(colorisation, neighborhood_stats, neighborhood_pos);
-    // auto stop = std::chrono::high_resolution_clock::now(); 
-    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start); 
-    // std::cout << "Time taken by function: " << duration.count() / 1000000.0 << " seconds" << std::endl; 
-  
 
     cvtColor(*(colorisation->target), *(colorisation->target), COLOR_Lab2BGR);    
 }
@@ -272,14 +271,14 @@ void run(colorisation_s colorisation) {
 // API FUNCTIONS //
 ///////////////////
 
-void welsh_colorisation(const char * source_img, const char * target_img, const char * dst_img) {
+void welsh_colorisation(const char * source_img, const char * target_img, const char * dst_img, int neighborhood_size, int samples) {
     // load images and initialise parameters
     Mat src, target;
     src = imread(samples::findFile(source_img));
     target = imread(samples::findFile(target_img));
     exit_if(src.empty(), "Cannot load source image");    
     exit_if(target.empty(), "Cannot load target image");    
-    colorisation_s colorisation = create_colorisation_struct(&src, &target, 5, 529, JITTERED);
+    colorisation_s colorisation = create_colorisation_struct(&src, &target);
 
     run(colorisation);
 

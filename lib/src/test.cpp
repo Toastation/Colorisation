@@ -8,6 +8,9 @@
 
 using namespace cv;
 
+#define DEFAULT_NEIGHBORHOOD_SIZE 5
+#define DEFAULT_SAMPLES 225
+
 int main(int argc, char ** argv) {
     const char window_name[] = "Welsh Colorisation"; 
     namedWindow(window_name, WINDOW_AUTOSIZE);
@@ -18,7 +21,7 @@ int main(int argc, char ** argv) {
     const char * src_path = argv[1];
     const char * target_path = argv[2]; 
     const char * dst_path = argv[3]; 
-    welsh_colorisation(src_path, target_path, dst_path);
+    welsh_colorisation(src_path, target_path, dst_path, 5, 225);
     Mat result = imread(target_path);
     imshow(window_name, result);
 }
