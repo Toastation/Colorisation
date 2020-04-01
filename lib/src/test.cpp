@@ -8,21 +8,23 @@
 
 using namespace cv;
 
-#define DEFAULT_NEIGHBORHOOD_SIZE 5
-#define DEFAULT_SAMPLES 225
-
 int main(int argc, char ** argv) {
     const char window_name[] = "Welsh Colorisation"; 
     namedWindow(window_name, WINDOW_AUTOSIZE);
     if (argc != 4) {
-        fprintf(stderr, "Usage: %s source_path target_path dst_path\n", argv[0]);
+        fprintf(stderr, "Usage: %s source_path target_path dst_path [x, y, w, h, x\', y\', w\', h\', ...]\n", argv[0]);
         return EXIT_FAILURE;
     }
     const char * src_path = argv[1];
     const char * target_path = argv[2]; 
     const char * dst_path = argv[3]; 
-    welsh_colorisation(src_path, target_path, dst_path, 5, 225);
-    Mat result = imread(target_path);
+    welsh_colorisation(src_path, target_path, dst_path, NULL);
+    // int src_rect_data[] = {168, 89, 100, 60, 229, 288, 43, 59, 87, 384, 49, 86};
+    // std::vector<int> src_rect(src_rect_data, src_rect_data + sizeof(src_rect_data) / sizeof(src_rect_data[0]));
+    // int target_rect_data[] = {168, 89, 100, 60, 229, 288, 43, 59, 87, 384, 49, 86};
+    // std::vector<int> target_rect(target_rect_data, target_rect_data + sizeof(target_rect_data) / sizeof(target_rect_data[0]));
+    // welsh_colorisation_swatches(src_path, target_path, dst_path, NULL, src_rect, target_rect);
+    Mat result = imread(dst_path);
     imshow(window_name, result);
 }
 
