@@ -46,6 +46,16 @@ typedef struct params_s * params;
  */
 void welsh_colorisation(const char * source_img, const char * target_img, const char * dst_img, params prm);
 
+/**
+ * @brief 
+ * 
+ * @param source_img 
+ * @param target_img 
+ * @param dst_img 
+ * @param prm 
+ * @param src_rect 
+ * @param target_rect 
+ */
 void welsh_colorisation_swatches(const char * source_img, const char * target_img, const char * dst_img, params prm, const std::vector<int>& src_rect, const std::vector<int>& target_rect);
 
 #endif

@@ -19,9 +19,11 @@ int main(int argc, char ** argv) {
     const char * target_path = argv[2]; 
     const char * dst_path = argv[3]; 
     welsh_colorisation(src_path, target_path, dst_path, NULL);
-    // int src_rect_data[] = {168, 89, 100, 60, 229, 288, 43, 59, 87, 384, 49, 86};
+    // int src_rect_data[] = {168, 89, 100, 60, 229, 288, 43, 59, 87, 384, 49, 86, 21, 22, 93, 122, 415, 269, 82, 110, 416, 85, 73, 56};
+    // int src_rect_data[] = {529, 440, 127, 85, 8, 10, 150, 214, 752, 269, 70, 20};
     // std::vector<int> src_rect(src_rect_data, src_rect_data + sizeof(src_rect_data) / sizeof(src_rect_data[0]));
-    // int target_rect_data[] = {168, 89, 100, 60, 229, 288, 43, 59, 87, 384, 49, 86};
+    // int target_rect_data[] = {168, 89, 100, 60, 229, 288, 43, 59, 87, 384, 49, 86, 21, 22, 93, 122, 415, 269, 82, 110, 416, 85, 73, 56};
+    // int target_rect_data[] = {722, 416, 278, 408, 8, 220, 250, 334, 506, 372, 11, 89};
     // std::vector<int> target_rect(target_rect_data, target_rect_data + sizeof(target_rect_data) / sizeof(target_rect_data[0]));
     // welsh_colorisation_swatches(src_path, target_path, dst_path, NULL, src_rect, target_rect);
     Mat result = imread(dst_path);

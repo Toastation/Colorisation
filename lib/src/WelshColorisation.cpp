@@ -122,7 +122,7 @@ void luminance_remap(Mat& src, Mat& target) {
  * @param prm 
  * @return Rect 
  */
-Rect get_neighborhood_rect(Mat& img, int x, int y, params prm) {
+Rect get_neighborhood_rect(const Mat& img, int x, int y, params prm) {
     int half_size = prm->neighborhood_window_size / 2;
     int size = prm->neighborhood_window_size;
     int tx = CLAMP(x - half_size, 0, img.cols);
@@ -197,14 +197,15 @@ void jittered_sampling(Mat& src, params prm, Vec2d * neighborhood_stats, std::ve
  * @param target_stats 
  * @return int 
  */
-int find_best_matching_pixel(params prm, Vec2d * neighborhood_stat, const Vec2d& target_stats) {
-    double diffs[prm->samples];
+int find_best_matching_pixel(params prm, Vec2d * neighborhood_stat, int size, const Vec2d& target_stats) {
+    double diffs[size];
     double target_mean, src_mean, target_stddev, src_stddev;
     double weight_mean = prm->mean_weight;
     double weight_dev = 1.0 - prm->mean_weight; 
+    
     // compute the weighted square difference between the samples and given neighborhoods
     #pragma omp parallel for
-    for (uint i = 0; i < prm->samples; i++) {
+    for (int i = 0; i < size; i++) {
         target_mean = target_stats[0];
         target_stddev = target_stats[1];
         src_mean = neighborhood_stat[i][0];
@@ -212,11 +213,12 @@ int find_best_matching_pixel(params prm, Vec2d * neighborhood_stat, const Vec2d&
         diffs[i] = (weight_mean * (target_mean - src_mean) * (target_mean - src_mean)) 
                 + (weight_dev * (target_stddev - src_stddev) * (target_stddev - src_stddev)); 
     }
+
     // find the minimum value among the squared differences
     double min_diff = INT_MAX;
     int min_index = 0;
     #pragma omp parallel for
-    for (uint i = 0; i < prm->samples; i++) {
+    for (int i = 0; i < size; i++) {
         if (diffs[i] < min_diff) {
             min_diff = diffs[i];
             min_index = i;
@@ -234,11 +236,11 @@ int find_best_matching_pixel(params prm, Vec2d * neighborhood_stat, const Vec2d&
  * @param neighborhood_stat 
  */
 void transfer_color(Mat& src, Mat& target, params prm, Vec2d * neighborhood_stat, const std::vector<Vec2i>& neighborhood_pos) {
-    #pragma omp parallel for collapse(2)
+    // #pragma omp parallel for collapse(2)
     for (int x = 0; x < target.cols; x++) {
         for (int y = 0; y < target.rows; y++) {
             Vec2d stats = compute_pixel_neighborhood_stat(prm, target, x, y);
-            int match_index = find_best_matching_pixel(prm, neighborhood_stat, stats);
+            int match_index = find_best_matching_pixel(prm, neighborhood_stat, prm->samples, stats);
             Vec3b color = target.at<Vec3b>(y, x);
             Vec3b matching_color = src.at<Vec3b>(neighborhood_pos[match_index][1], neighborhood_pos[match_index][0]);
             color[1] = matching_color[1];
@@ -311,52 +313,74 @@ double compute_sq_diff(const Mat& target, const Vec4i& rect, int x, int y, int s
  * @param target_swatches list of all swatches in the target image
  * @return the coordinate of the colorised pixel (in a swatch) that minimise the error distance and the index of the swatch the pixel is from
  */
-Vec2i get_minimum_error_distance(const Mat& target, int x, int y, const std::vector<std::vector<Vec2i>>& swatch_samples, const vec_int& target_rect, params prm) {
+int get_minimum_error_distance(const Mat& target, int x, int y, const std::vector<Vec2i>& swatch_samples, const vec_int& target_rect, params prm) {
     double min_error_dist = 0xFFFF; // minimum error distance between the pixel neighborhood and a colorised pixel neighborhood
-    double min_sx = 0, min_sy = 0;  // the coordinate of the colorised pixel that minimise the error distance
-    double sq_sum = 0;
+    double min_index = 0;
     // iterate over all colorised pixel and compute the error distance between the given pixel and the iterated pixel
-
-    for (size_t i = 0; i < swatch_samples.size(); i++) {
-        std::vector<Vec2i> samples = swatch_samples[i];
-        #pragma omp parallel for
-        for (size_t j = 0; j < samples.size(); j++) {
-            Vec2i sample =  samples[j];
-            sample[0] += target_rect[4 * i];
-            sample[1] += target_rect[4 * i + 1];
-            Vec4i rect = get_min_neighbordhood_rect(target, x, y, sample[0], sample[1], prm);
-            Mat a = target(Rect(x-rect[0], y-rect[1], rect[2], rect[3]));
-            Mat b = target(Rect(sample[0]-rect[0], sample[1]-rect[1], rect[2], rect[3]));
-            sq_sum = cv::norm(a, b);
-            // sq_sum = compute_sq_diff(target, rect, x, y, sample[0], sample[1]);
-            if (sq_sum < min_error_dist) {
-                min_error_dist = sq_sum;
-                min_sx = sample[0];
-                min_sy = sample[1];
-            }
+    Vec2i sample;
+    Vec4i rect;
+    // #pragma omp parallel for
+    for (size_t j = 0; j < swatch_samples.size(); j++) {
+        sample = swatch_samples[j];
+        rect = get_min_neighbordhood_rect(target, x, y, sample[0], sample[1], prm);
+        Mat a = target(Rect(x-rect[0], y-rect[1], rect[2], rect[3]));
+        Mat b = target(Rect(sample[0]-rect[0], sample[1]-rect[1], rect[2], rect[3]));
+        Mat c;
+        cv::absdiff(a, b, c);
+        c.convertTo(c, CV_32F);  // cannot make a square on 8 bits
+        c = c.mul(c);   
+        Scalar s = sum(c);
+        // sq_sum = compute_sq_diff(target, rect, x, y, sample[0], sample[1]);
+        if (s[0] < min_error_dist) {
+            min_error_dist = s[0];
+            min_index = j;
         }
     }
-    return Vec2i(min_sx, min_sy);
+    return min_index;
 }
 
 void diffuse_color(Mat& target, std::vector<Mat>& target_swatches, const std::vector<int>& target_rect, params prm) {
-    std::vector<std::vector<Vec2i>> swatch_samples;
+    // get all samples from all swatches
+    std::vector<Vec2i> swatch_samples; 
     for (size_t i = 0; i < target_swatches.size(); i++) {
         std::vector<Vec2i> neighborhood_pos;
         jittered_sampling(target_swatches[i], prm, NULL, neighborhood_pos);
-        swatch_samples.push_back(neighborhood_pos);
+        for (size_t j = 0; j < neighborhood_pos.size(); j++) {
+            neighborhood_pos[j][0] += target_rect[4 * i];
+            neighborhood_pos[j][1] += target_rect[4 * i + 1];
+        }
+        swatch_samples.insert(swatch_samples.end(), neighborhood_pos.begin(), neighborhood_pos.end());
     }
+
+    // compute their stats
+    Vec2d * stats = (Vec2d *) malloc(sizeof(Vec2d) * swatch_samples.size());
+    exit_if(stats == NULL, "error allocating stats array");
+    for (size_t i = 0; i < swatch_samples.size(); i++) {
+        stats[i] = compute_pixel_neighborhood_stat(prm, target, swatch_samples[i][0], swatch_samples[i][1]);
+    }
+
+    // for (size_t i = 0; i < swatch_samples.size(); i++) {
+    //     Vec2i pos = swatch_samples[i];
+    //     Vec3b color = target.at<Vec3b>(pos[1], pos[0]);
+    //     target.at<Vec3b>(pos[1], pos[0]) = Vec3b(color[0], 100, 0);
+    // }
+
     // #pragma omp parallel for collapse(2)
     for (int x = 0; x < target.cols; x++) {
         for (int y = 0; y < target.rows; y++) {
-            Vec3b pixel = target.at<Vec3b>(x, y);
-            // skip already colorised pixels
-            if (pixel[1] != pixel[2] || pixel[1] != 128) continue;
-            // iterate all swatches pixels and minimise error distance
-            Vec2i min_color_pixel = get_minimum_error_distance(target, x, y, swatch_samples, target_rect, prm);
-            target.at<Vec3b>(x, y) = target.at<Vec3b>(min_color_pixel[0], min_color_pixel[1]);
+            Vec3b pixel = target.at<Vec3b>(y, x);
+            if (pixel[1] != pixel[2] || pixel[1] != 128) continue; // skip already colorised pixels
+            Vec2d pixel_stats = compute_pixel_neighborhood_stat(prm, target, x, y);
+            int match_index = find_best_matching_pixel(prm, stats, swatch_samples.size(), pixel_stats);
+            // int match_index = get_minimum_error_distance(target, x, y, swatch_samples, target_rect, prm);
+            // std::cout << match_index << std::endl;
+            Vec3b matching_color = target.at<Vec3b>(swatch_samples[match_index][1], swatch_samples[match_index][0]);
+            pixel[1] = matching_color[1];
+            pixel[2] = matching_color[2];
+            target.at<Vec3b>(y, x) = pixel; 
         }
     }
+    free(stats);
 }
 
 /**
@@ -371,7 +395,7 @@ void diffuse_color(Mat& target, std::vector<Mat>& target_swatches, const std::ve
  * @param colorisation 
  */
 void run(Mat& src, Mat& target, params prm) {
-    // convert source and target images to LAB color space
+    // convert source and target images to LAB col or space
     cvtColor(src, src, COLOR_BGR2Lab);
     cvtColor(target, target, COLOR_BGR2Lab);    
 
@@ -390,21 +414,21 @@ void run_swatch(Mat& src, Mat& target, const vec_int& src_swatches, const vec_in
     // convert source and target images to LAB color space
     cvtColor(src, src, COLOR_BGR2Lab);
     cvtColor(target, target, COLOR_BGR2Lab);   
-
+    
     // compute the sub matrices for each swatch
     std::vector<Mat> src_swatch_mat, target_swatch_mat;
     get_swatch_matrices(src, target, src_swatches, target_swatches, src_swatch_mat, target_swatch_mat);
-
+    
     // apply general algo on each swatch (luminance remap + sampling + color transfer)
     int nb_swatches = src_swatches.size() / 4;
     int samples_save = prm->samples;
-    prm->samples = 50; // temporarily lower samples for the swatch color transfer
+    prm->samples = 64; // temporarily lower samples for the swatch color transfer
     for (int i = 0; i < nb_swatches; i++) {
         sample_and_transfer(src_swatch_mat[i], target_swatch_mat[i], prm);
     }
-    prm->samples = samples_save;
 
     diffuse_color(target, target_swatch_mat, target_swatches, prm);
+    prm->samples = samples_save;
 
     // LAB->BGR conversion
     cvtColor(target, target, COLOR_Lab2BGR);    
