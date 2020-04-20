@@ -2,9 +2,6 @@
  * @file WelshColorisation.cpp
  * @brief 
  *
- * TODO :
- * - test cases where images aren't of the same size
- * 
  */
 
 #include "WelshColorisation.hpp"
@@ -15,10 +12,15 @@
 #include <chrono>
 #include <omp.h>
 
+#define DEFAULT_NEIGHBORHOOD_SIZE 5
+#define DEFAULT_SAMPLES 256
+#define DEFAULT_SAMPLING JITTERED
+#define DEFAULT_MEAN_WEIGHT 0.5
+
 #define CLAMP(x, low, high)  (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 #define IN_RECT(x, y, rx, ry, rw, rh) (x >= rx &&  x < rx + rw && y >= ry &&  y < ry + rh)
 
-typedef std::vector<int> vec_int;
+typedef std::vector<Rect2d> vec_swatch;
 
 /**
  * @brief log the given error message to the standard error output
@@ -54,6 +56,8 @@ params create_default_params() {
     prm->neighborhood_window_size = DEFAULT_NEIGHBORHOOD_SIZE;
     prm->samples = DEFAULT_SAMPLES;
     prm->sampling = DEFAULT_SAMPLING;
+    prm->show_samples = false;
+    prm->verbose = false;
     return prm;
 }
 
@@ -80,14 +84,10 @@ void load_matrices(const char * src_path, const char * target_path, Mat& src, Ma
  * @param target_swatch_mat The list of swatch matrices for the source 
  * @param target_swatch_mat The list of swatch matrices for the target
  */
-void get_swatch_matrices(Mat& src, Mat& target, const vec_int& src_swatches, const vec_int& target_swatches, std::vector<Mat>& src_swatch_mat, std::vector<Mat>& target_swatch_mat) {
-    Rect src_rect;
-    Rect target_rect;
-    for (std::size_t i = 0; i < src_swatches.size(); i += 4) {
-        src_rect = Rect(src_swatches[i], src_swatches[i+1], src_swatches[i+2], src_swatches[i+3]);
-        target_rect = Rect(target_swatches[i], target_swatches[i+1], target_swatches[i+2], target_swatches[i+3]);
-        src_swatch_mat.push_back(src(src_rect)); 
-        target_swatch_mat.push_back(target(target_rect)); 
+void get_swatch_matrices(Mat& src, Mat& target, const vec_swatch& src_swatches, const vec_swatch& target_swatches, std::vector<Mat>& src_swatch_mat, std::vector<Mat>& target_swatch_mat) {
+    for (std::size_t i = 0; i < src_swatches.size(); i++) {
+        src_swatch_mat.push_back(src(src_swatches[i])); 
+        target_swatch_mat.push_back(target(target_swatches[i])); 
     } 
 }
 
@@ -241,6 +241,7 @@ void transfer_color(Mat& src, Mat& target, params prm, Vec2d * neighborhood_stat
         for (int y = 0; y < target.rows; y++) {
             Vec2d stats = compute_pixel_neighborhood_stat(prm, target, x, y);
             int match_index = find_best_matching_pixel(prm, neighborhood_stat, prm->samples, stats);
+            if (prm->verbose) printf("Matching position index: %d (target: %d %d)\n", match_index, x, y);
             Vec3b color = target.at<Vec3b>(y, x);
             Vec3b matching_color = src.at<Vec3b>(neighborhood_pos[match_index][1], neighborhood_pos[match_index][0]);
             color[1] = matching_color[1];
@@ -266,6 +267,7 @@ void sample_and_transfer(Mat& src, Mat& target, params prm) {
             brute_force_sampling(src, prm, neighborhood_stats, neighborhood_pos);
             break;
     }
+
     // find the best color match for each grayscale pixel and transfer its color
     transfer_color(src, target, prm, neighborhood_stats, neighborhood_pos);
     free(neighborhood_stats);
@@ -313,7 +315,7 @@ double compute_sq_diff(const Mat& target, const Vec4i& rect, int x, int y, int s
  * @param target_swatches list of all swatches in the target image
  * @return the coordinate of the colorised pixel (in a swatch) that minimise the error distance and the index of the swatch the pixel is from
  */
-int get_minimum_error_distance(const Mat& target, int x, int y, const std::vector<Vec2i>& swatch_samples, const vec_int& target_rect, params prm) {
+int get_minimum_error_distance(const Mat& target, int x, int y, const std::vector<Vec2i>& swatch_samples, const vec_swatch& target_rect, params prm) {
     double min_error_dist = 0xFFFF; // minimum error distance between the pixel neighborhood and a colorised pixel neighborhood
     double min_index = 0;
     // iterate over all colorised pixel and compute the error distance between the given pixel and the iterated pixel
@@ -339,15 +341,15 @@ int get_minimum_error_distance(const Mat& target, int x, int y, const std::vecto
     return min_index;
 }
 
-void diffuse_color(Mat& target, std::vector<Mat>& target_swatches, const std::vector<int>& target_rect, params prm) {
+void diffuse_color(Mat& target, std::vector<Mat>& target_swatches, const vec_swatch& target_rect, params prm) {
     // get all samples from all swatches
     std::vector<Vec2i> swatch_samples; 
     for (size_t i = 0; i < target_swatches.size(); i++) {
         std::vector<Vec2i> neighborhood_pos;
         jittered_sampling(target_swatches[i], prm, NULL, neighborhood_pos);
         for (size_t j = 0; j < neighborhood_pos.size(); j++) {
-            neighborhood_pos[j][0] += target_rect[4 * i];
-            neighborhood_pos[j][1] += target_rect[4 * i + 1];
+            neighborhood_pos[j][0] += target_rect[i].x;
+            neighborhood_pos[j][1] += target_rect[i].y;
         }
         swatch_samples.insert(swatch_samples.end(), neighborhood_pos.begin(), neighborhood_pos.end());
     }
@@ -359,21 +361,15 @@ void diffuse_color(Mat& target, std::vector<Mat>& target_swatches, const std::ve
         stats[i] = compute_pixel_neighborhood_stat(prm, target, swatch_samples[i][0], swatch_samples[i][1]);
     }
 
-    // for (size_t i = 0; i < swatch_samples.size(); i++) {
-    //     Vec2i pos = swatch_samples[i];
-    //     Vec3b color = target.at<Vec3b>(pos[1], pos[0]);
-    //     target.at<Vec3b>(pos[1], pos[0]) = Vec3b(color[0], 100, 0);
-    // }
-
     // #pragma omp parallel for collapse(2)
     for (int x = 0; x < target.cols; x++) {
         for (int y = 0; y < target.rows; y++) {
             Vec3b pixel = target.at<Vec3b>(y, x);
             if (pixel[1] != pixel[2] || pixel[1] != 128) continue; // skip already colorised pixels
-            Vec2d pixel_stats = compute_pixel_neighborhood_stat(prm, target, x, y);
-            int match_index = find_best_matching_pixel(prm, stats, swatch_samples.size(), pixel_stats);
-            // int match_index = get_minimum_error_distance(target, x, y, swatch_samples, target_rect, prm);
-            // std::cout << match_index << std::endl;
+            // Vec2d pixel_stats = compute_pixel_neighborhood_stat(prm, target, x, y);
+            // int match_index = find_best_matching_pixel(prm, stats, swatch_samples.size(), pixel_stats);
+            int match_index = get_minimum_error_distance(target, x, y, swatch_samples, target_rect, prm);
+            if (prm->verbose) printf("Matched index %d (target: %d %d)", match_index, x, y);
             Vec3b matching_color = target.at<Vec3b>(swatch_samples[match_index][1], swatch_samples[match_index][0]);
             pixel[1] = matching_color[1];
             pixel[2] = matching_color[2];
@@ -402,7 +398,12 @@ void run(Mat& src, Mat& target, params prm) {
     sample_and_transfer(src, target, prm);
 
     // LAB->BGR conversion
-    cvtColor(target, target, COLOR_Lab2BGR);    
+    cvtColor(target, target, COLOR_Lab2BGR);
+
+    if (prm->show_samples) {
+        cvtColor(src, src, COLOR_Lab2BGR);
+        imwrite("samples.png", src);
+    }    
 }
 
 /**
@@ -410,7 +411,7 @@ void run(Mat& src, Mat& target, params prm) {
  * 
  * @param colorisation 
  */
-void run_swatch(Mat& src, Mat& target, const vec_int& src_swatches, const vec_int& target_swatches, params prm) {
+void run_swatch(Mat& src, Mat& target, const vec_swatch& src_swatches, const vec_swatch& target_swatches, params prm) {
     // convert source and target images to LAB color space
     cvtColor(src, src, COLOR_BGR2Lab);
     cvtColor(target, target, COLOR_BGR2Lab);   
@@ -420,7 +421,7 @@ void run_swatch(Mat& src, Mat& target, const vec_int& src_swatches, const vec_in
     get_swatch_matrices(src, target, src_swatches, target_swatches, src_swatch_mat, target_swatch_mat);
     
     // apply general algo on each swatch (luminance remap + sampling + color transfer)
-    int nb_swatches = src_swatches.size() / 4;
+    int nb_swatches = src_swatches.size();
     int samples_save = prm->samples;
     prm->samples = 64; // temporarily lower samples for the swatch color transfer
     for (int i = 0; i < nb_swatches; i++) {
@@ -438,26 +439,16 @@ void run_swatch(Mat& src, Mat& target, const vec_int& src_swatches, const vec_in
 // API FUNCTIONS //
 ///////////////////
 
-void welsh_colorisation(const char * source_img, const char * target_img, const char * dst_img, params prm) {
-    // load images and initialise parameters
-    Mat src, target;
-    load_matrices(source_img, target_img, src, target);
+void welsh_colorisation(Mat& source_img, Mat& target_img, const char * dst_img, params prm) {
     if (prm == NULL) prm = create_default_params();
-
-    run(src, target, prm);
-
-    imwrite(dst_img, target);
+    run(source_img, target_img, prm);
+    imwrite(dst_img, target_img);
 }
 
-void welsh_colorisation_swatches(const char * source_img, const char * target_img, const char * dst_img, params prm, const vec_int& src_rect, const vec_int& target_rect) {
-    // load images and initialise parameters
-    Mat src, target;
-    load_matrices(source_img, target_img, src, target);
-    exit_if(src_rect.size() % 4 != 0 || target_rect.size() % 4 != 0, "Error: malformed swatch data.");
+void welsh_colorisation_swatches(Mat& source_img, Mat& target_img, const char * dst_img, params prm, const vec_swatch& src_rect, const vec_swatch& target_rect) {
     exit_if(src_rect.size() != target_rect.size(), "Error: the number of swatches in the source and target does not match.");
-    if (prm == NULL) prm = create_default_params();
-
-    run_swatch(src, target, src_rect, target_rect, prm);
-
-    imwrite(dst_img, target);
+    if (prm == NULL) prm = create_default_params(); 
+    std::cout << src_rect.size() << std::endl;
+    run_swatch(source_img, target_img, src_rect, target_rect, prm);
+    imwrite(dst_img, target_img);
 }
